@@ -1,0 +1,3 @@
+name = Sainet
+description = Módulo para formulario paso a paso.
+core = 7.x

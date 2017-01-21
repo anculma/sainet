@@ -1,0 +1,440 @@
+<?php
+
+function sainet_menu() {
+  $items['sainet/form'] = array(
+    'title' => t('Form step to step'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sainet_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['sainet/form/%/edit'] = array(
+    'title' => t('Form step to step'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sainet_form', 2),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['sainet/form/%/delete'] = array(
+    'title' => t('Delete sainet'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sainet_delete_form', 2),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['sainet/manager'] = array(
+    'title' => t('Manager sainet'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sainet_manager_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['sainet/generate/xls'] = array(
+    'title' => t('Manager xls'),
+    'page callback' => 'sainet_manager_xls',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+
+// Adds logic to our form builder to give it two pages. It checks a
+// value in $form_state['storage'] to determine if it should display page 2.
+function sainet_form($form, $form_state, $id = null) {
+	$result = db_query("SELECT * from sainet_form WHERE sid = :id", array(':id' => $id))->fetchObject();
+
+	$form['#attached']['css'] = array(
+    drupal_get_path('module', 'field_group') . '/horizontal-tabs/horizontal-tabs.css',
+  );
+  $form['#attached']['js'] = array(
+    drupal_get_path('module', 'field_group') . '/horizontal-tabs/horizontal-tabs.js',
+  );
+
+  $form['tabs'] = array(
+    '#type' => 'horizontal_tabs',
+    '#tree' => TRUE,
+    '#prefix' => '<div id="form-wrapper-sainet">',
+    '#suffix' => '</div>',
+  );
+
+ 	// Defines tab one.
+  $form['tabs']['information'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Personal information'),
+  );
+  //Default name
+	$name = isset($result->name) ? $result->name : '';
+  $form['tabs']['information']['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('First name'),
+    '#default_value' => (isset($form_state['values']['name'])) ? $form_state['values']['name'] : $name,  // replacement
+    '#description' => "Please enter your first name.",
+    '#size' => 40,
+    '#maxlength' => 40,
+    '#required' => TRUE,
+  );
+  //Default last name
+	$last_name = isset($result->last_name) ? $result->last_name : '';
+  $form['tabs']['information']['last'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Last name'),
+    '#default_value' => (isset($form_state['values']['last'])) ? $form_state['values']['last'] : $last_name,  // replacement
+    '#description' => "Please enter your last name.",
+    '#size' => 40,
+    '#maxlength' => 40,
+    '#required' => TRUE,
+  );
+  //Default gender
+	$gender = isset($result->gender) ? $result->gender : '';
+  $form['tabs']['information']['gender'] = array(
+    '#type' => 'select',
+    '#title' => t('Gender'),
+    '#options' => array(
+			'man' => t('Man'),
+			'woman' => t('Woman'),
+		),
+    '#default_value' => (isset($form_state['values']['gender'])) ? $form_state['values']['gender'] : $gender,  // replacement
+    '#required' => TRUE,
+  );
+  $format = 'Y-m-d';
+  //Defaul birthday
+  $birthdate = isset($result->birthdate) ? format_date($result->birthdate,'custom','Y-m-d') : '';
+	$form['tabs']['information']['birthday'] = array(
+	  '#type' => 'date_popup', 
+		'#title' => t('Birhday'),
+		'#default_value' => (isset($form_state['values']['birthday'])) ? $form_state['values']['birthday'] : $birthdate,
+		'#date_format' => $format,
+		'#date_label_position' => 'within',
+		'#date_year_range' => '-80:0', 
+		'#required' => TRUE,
+	);
+	$form['tabs']['information']['next_1'] = array(
+		'#type' => 'button',
+		'#value' => t('Next'),
+		'#ajax' => array(
+      'callback' => 'ajax_sainet_form_callback',
+      'wrapper' => 'form-wrapper-sainet',
+    ),
+	);
+	$state_1 = FALSE;
+	if((!empty($form_state['values']['tabs']['information']['name']) && !empty($form_state['values']['tabs']['information']['last']) && !empty($form_state['values']['tabs']['information']['gender']) && !empty($form_state['values']['tabs']['information']['birthday'])) || $id > 0){
+		$state_1 = TRUE;
+	}
+  // Defines tab two.
+  $form['tabs']['location'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Location'),
+    '#access' => $state_1,
+  );
+  $cities = taxonomy_get_tree(1);
+  $options = array();
+  foreach ($cities as $key => $city) {
+  	$options[$city->tid] = $city->name;
+  }
+  //Default city
+  $city = isset($result->city) ? $result->city : '';
+ 	$form['tabs']['location']['city'] = array(
+    '#type' => 'select',
+    '#title' => t('City'),
+    '#options' => $options,
+    '#default_value' => (isset($form_state['values']['city'])) ? $form_state['values']['city'] : $city,  // replacement
+    '#required' => TRUE,
+  );
+  //Default phone
+  $phone = isset($result->phone) ? $result->phone : '';
+ 	$form['tabs']['location']['phone'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Phone'),
+  //  '#default_value' => $form_state['values']['last'], // changed  // replaced
+    '#default_value' => (isset($form_state['values']['last'])) ? $form_state['values']['last'] : $phone,  // replacement
+    '#description' => "Please enter your phone.",
+    '#size' => 20,
+    '#maxlength' => 20,
+    '#required' => TRUE,
+  );
+  //Default address
+  $address = isset($result->address) ? $result->address : '';
+  $form['tabs']['location']['address'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Address'),
+  //  '#default_value' => $form_state['values']['last'], // changed  // replaced
+    '#default_value' => (isset($form_state['values']['last'])) ? $form_state['values']['last'] : $address,  // replacement
+    '#description' => "Please enter your address.",
+    '#size' => 40,
+    '#maxlength' => 40,
+    '#required' => TRUE,
+  );
+  $form['tabs']['location']['next_2'] = array(
+		'#type' => 'button',
+		'#value' => t('Next'),
+		'#ajax' => array(
+      'callback' => 'ajax_sainet_form_callback',
+      'wrapper' => 'form-wrapper-sainet',
+    ),
+	);
+	$state_2 = FALSE;
+	if((!empty($form_state['values']['tabs']['location']['city']) && !empty($form_state['values']['tabs']['location']['phone']) && is_numeric($form_state['values']['tabs']['location']['phone']) && !empty($form_state['values']['tabs']['location']['address'])) || $id > 0){
+		$state_2 = TRUE;
+	}
+  $form['tabs']['send'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Send'),
+    '#access' => $state_2,
+  );
+  $form['tabs']['send']['submit'] = array(
+  	'#type' => 'submit', 
+  	'#value' => t('Submit')
+  );
+  return $form;
+}
+
+/**
+ * Callback element needs only select the portion of the form to be updated.
+ * Since #ajax['callback'] return can be HTML or a renderable array (or an
+ * array of commands), we can just return a piece of the form.
+ */
+function ajax_sainet_form_callback($form, $form_state) {
+  return $form;
+}
+
+
+function sainet_form_validate($form, $form_state){
+	if(!empty($form_state['values']['tabs']['location']['phone']) && !is_numeric($form_state['values']['tabs']['location']['phone'])){
+		form_set_error($form['tabs']['location']['phone'], t("Must be numeric the field telephone"));
+	}
+}
+
+
+function sainet_form_submit($form, $form_state){
+	if(isset($form_state['build_info']['args'][0]) && is_numeric($form_state['build_info']['args'][0])){
+		$result = db_update('sainet_form')
+		  ->fields(array(
+		    'date_create' => strtotime("now"),
+	      'name' => $form_state['values']['tabs']['information']['name'],
+	      'last_name' => $form_state['values']['tabs']['information']['last'],
+	      'gender' => $form_state['values']['tabs']['information']['gender'],
+	      'birthdate' => strtotime($form_state['values']['tabs']['information']['birthday']),
+	      'city' => $form_state['values']['tabs']['location']['city'],
+	      'phone' => $form_state['values']['tabs']['location']['phone'],
+	      'address' => $form_state['values']['tabs']['location']['address'],
+		  ))
+		  ->condition('sid', $form_state['build_info']['args'][0], '=')
+		  ->execute();
+		if($result){
+	  	drupal_set_message(t('Data correctly updated'));
+	  }
+	}else{
+		$result=db_insert('sainet_form')->fields( 
+	    array(
+	    	'date_create' => strtotime("now"),
+	      'name' => $form_state['values']['tabs']['information']['name'],
+	      'last_name' => $form_state['values']['tabs']['information']['last'],
+	      'gender' => $form_state['values']['tabs']['information']['gender'],
+	      'birthdate' => strtotime($form_state['values']['tabs']['information']['birthday']),
+	      'city' => $form_state['values']['tabs']['location']['city'],
+	      'phone' => $form_state['values']['tabs']['location']['phone'],
+	      'address' => $form_state['values']['tabs']['location']['address'],
+	    )
+	  )->execute();
+	  if($result){
+	  	drupal_set_message(t('Correctly updated data'));
+	  }
+	}
+}
+
+
+/**
+ * Callback form delete
+ */
+function sainet_delete_form($form, $form_state, $id){
+	$form['markup'] = array(
+  	'#type' => 'markup', 
+  	'#markup' => t('You are sure to delete this information'),
+  	'#prefix' => '<div>',
+  	'#suffix' => '</div>',
+  );
+	$form['submit'] = array(
+  	'#type' => 'submit', 
+  	'#value' => t('Delete'),
+  	'#prefix' => '<div>',
+  	'#suffix' => '</div>',
+  );
+	return $form;
+}
+
+/**
+ * Submit delete sainet
+ */
+function sainet_delete_form_submit($form, $form_state){
+	$result = db_delete('sainet_form')
+	  ->condition('sid', $form_state['build_info']['args'][0])
+	  ->execute();
+  if($result){
+  	drupal_set_message(t("Successfully deleted"));
+  }
+}
+
+/**
+ * Callback manager sainet
+ */
+function sainet_manager_form($form, $form_state){
+	$format = 'Y-m-d';
+	$start_date = !empty($form_state['values']['date1']) ? $form_state['values']['date1'] : '';
+	$form['date1'] = array(
+    '#type' => 'date_popup',
+    '#date_timezone' => date_default_timezone(),
+    '#date_format' => $format,
+    '#date_year_range' => '-3:+3',
+    '#title' => t('Start date'),
+    '#default_value' => $start_date,
+    '#ajax' => array(
+      'callback' => 'sainet_manager_form_ajax_callback',
+      'wrapper' => 'table-report',
+      'method' => 'replace',
+      'effect' => 'fade',
+    ),
+  );
+  $end_date= !empty($form_state['values']['date2']) ? $form_state['values']['date2'] : '';
+  $form['date2'] = array(
+    '#type' => 'date_popup',
+    '#date_timezone' => date_default_timezone(),
+    '#date_format' => $format,
+    '#date_year_range' => '-3:+3',
+    '#title' => t('End date'),
+    '#default_value' => $end_date,
+    '#ajax' => array(
+      'callback' => 'sainet_manager_form_ajax_callback',
+      'wrapper' => 'table-report',
+      'method' => 'replace',
+      'effect' => 'fade',
+    ),
+  );
+  $gender = !empty($form_state['values']['gender']) ? $form_state['values']['gender'] : '';
+  $form['gender'] = array (
+    '#type' => 'select',
+    '#title' => t('Gender'),
+    '#options' => array(
+    	'none' => t('None'),
+    	'man' => t('Man'),
+    	'woman' => t('Woman'),
+    ),
+    '#default_value' => $gender,
+    '#ajax' => array(
+      'callback' => 'sainet_manager_form_ajax_callback',
+      'wrapper' => 'table-report',
+      'method' => 'replace',
+      'effect' => 'fade',
+    ),
+  );
+  $name = !empty($form_state['values']['name']) ? $form_state['values']['name'] : '';
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Names'),
+    '#default_value' => $name,  // replacement
+    '#description' => "Please enter your first and last name.",
+    '#size' => 60,
+    '#maxlength' => 60,
+    '#ajax' => array(
+      'callback' => 'sainet_manager_form_ajax_callback',
+      'wrapper' => 'table-report',
+      'method' => 'replace',
+      'effect' => 'fade',
+    ),
+  );
+  $query = "SELECT * from sainet_form WHERE sid > 0";
+  if(!empty($start_date) && !empty($end_date)){
+  	$date1 = strtotime($start_date);
+  	$date2 = strtotime($end_date . "+1 day");
+  	$query .= " and date_create between ". $date1 ." and " . $date2;
+  }
+  if($gender && $gender != 'none'){
+  	$query .= " and gender = '". $gender ."'";
+  }
+  //concat name and last name in query
+  if(!empty($name)){
+  	$query .= " and concat_ws(' ',name,last_name) like '%".$name."%'";
+  }
+  $query .= " order by date_create asc";
+  // Header
+  $header = array(t('Id'),t('Date create') ,t('Name'), t('Last name'), t('Gender'), t('Birthday'), t('City'), t('Phone'), t('Address'), t('Options'));
+  // Query
+  $result = db_query($query)->fetchAll();
+  $rows = array();
+  $xls = array();
+  foreach ($result as $key => $value) {
+  	$city = taxonomy_term_load($value->city);
+  	$rows[] = array(
+  		'sid' => $value->sid,
+  		'date_create' => format_date($value->date_create,'custom','d-F-Y', NULL),
+  		'name' => $value->name,
+  		'last_name' => $value->last_name,
+  		'gender' => $value->gender,
+  		'birthday' => format_date($value->birthdate,'custom','d-F-Y', NULL),
+  		'city' => $city->name,
+  		'phone' => $value->phone,
+  		'address' => $value->address,
+  		'options' => '<div>' . l('Edit', 'sainet/form/'.$value->sid.'/edit') . '</div><div>' . l('Delete', 'sainet/form/'.$value->sid.'/delete') . '</div>'
+  	);
+  	$xls[] = array(
+  		'sid' => $value->sid,
+  		'date_create' => format_date($value->date_create,'custom','d-F-Y', NULL),
+  		'name' => $value->name,
+  		'last_name' => $value->last_name,
+  		'gender' => $value->gender,
+  		'birthday' => format_date($value->birthdate,'custom','d-F-Y', NULL),
+  		'city' => $city->name,
+  		'phone' => $value->phone,
+  		'address' => $value->address,
+  	);
+  }
+  $_SESSION['sainet_xls'] = $xls;
+  $per_page = 50;
+  $current_page = pager_default_initialize(count($rows), $per_page);
+  // split array into page sized chunks
+  $chunks = array_chunk($rows, $per_page, TRUE);
+  $form['reports'] = array(
+    '#markup' => theme('table', array('header' => $header, 'rows' => $chunks[$current_page])),
+    '#prefix' => '<div id="table-report">',
+    '#suffix' => '</div>', 
+  );
+  $form['pager'] = array(
+    '#theme' => 'pager',
+  );
+  $form['export_xls'] = array(
+    '#markup' => l(t('Generate xls'), 'sainet/generate/xls'),
+    '#prefix' => '<div>',
+    '#suffix' => '</div>', 
+  );
+  return $form;
+}
+
+/**
+ * Method callback for AJAX additions. Render the new table choices.
+ */
+function sainet_manager_form_ajax_callback($form, $form_state) {
+  return $form['reports'];
+}
+
+function sainet_manager_xls(){
+	$rows = array();
+	// header
+  $header = array(t('Id'),t('Date create') ,t('Name'), t('Last name'), t('Gender'), t('Birthday'), t('City'), t('Phone'), t('Address'));
+  $rows = $_SESSION['sainet_xls'];
+
+  if (count($rows) > 0) {
+    // send response headers to the browser
+    drupal_add_http_header('Content-Type', 'text/xls');
+    drupal_add_http_header('Content-Disposition', 'attachment;filename='.time().'.xls');
+
+    $all_data = array_merge(array($header), $rows);
+    $fp = fopen('php://output', 'w');
+    foreach($all_data as $line){
+      fputcsv($fp, $line);
+    }
+    fclose($fp);
+    drupal_exit();
+  } else {
+    echo t("No data to display");
+  }
+}

@@ -1,0 +1,78 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function sainet_schema() {
+
+  $schema['sainet_form'] = array(
+    'description' => 'Id',
+    'fields' => array(
+      'sid' => array(
+        'description' => 'Primary key: Unique subscriber ID.',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'date_create' => array(
+        'description' => 'Birthdate',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'name' => array(
+        'description' => "Name",
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'last_name' => array(
+        'description' => "Last name",
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'gender' => array(
+        'description' => "Gender",
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'birthdate' => array(
+        'description' => 'Birthdate',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'city' => array(
+        'description' => "City",
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'phone' => array(
+        'description' => 'Phone',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'address' => array(
+        'description' => "Address",
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    
+    ),
+    'primary key' => array('sid'),
+  );
+
+ 
+  return $schema;
+}

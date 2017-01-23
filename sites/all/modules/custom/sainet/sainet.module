@@ -435,6 +435,6 @@ function sainet_manager_xls(){
     fclose($fp);
     drupal_exit();
   } else {
-    echo t("No data to display");
+    echo t("No data to display ");
   }
 }
